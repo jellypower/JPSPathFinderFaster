@@ -130,11 +130,11 @@ Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, Vector2Int ju
 		else
 			xPosToJump = closestUpForcedXPos;
 
-		/*
+		
 		if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y && xPosToJump > jumpTargetNodeIdx.m_x)
 			xPosToJump = jumpTargetNodeIdx.m_x;
 		// TODO: 이놈처럼 다른것들도 다 하기
-		*/
+		
 
 		if (xPosToJump == closestBlockXPos)
 			return Vector2Int::InvalidIdx;
