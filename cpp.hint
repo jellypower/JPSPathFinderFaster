@@ -1,0 +1,2 @@
+#define JPSPATHFINDERFASTER_API __declspec(dllexport)
+#define JPSPATHFINDERFASTER_API __declspec(dllimport)
