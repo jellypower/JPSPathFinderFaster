@@ -19,9 +19,9 @@ typedef unsigned char uint8;
 
 struct Vector2Int
 {
-	uint32 m_x, m_y;
+	int32 m_x, m_y;
 
-	Vector2Int(uint32 InX, uint32 InY):
+	Vector2Int(int32 InX, int32 InY):
 		m_x(InX), m_y(InY)
 	{
 		NOOP;
@@ -83,6 +83,7 @@ public:
 	{
 		m_closeListData[m_closeListSize++] = InVector;
 	}
+
 	void clear()
 	{
 		m_closeListSize = 0;
@@ -109,6 +110,25 @@ struct JPSGridInfoToFindPath
 		assert(InLocation.m_y < m_gridMapVerticalSize);
 
 		return m_gridMapPathfinderInfo[m_gridMapHorizontalSize * InLocation.m_y + InLocation.m_x];
+	}
+
+	inline bool IsBlockAt(const Vector2Int InLocation) const
+	{
+		assert(InLocation.m_x < m_gridMapHorizontalSize);
+		assert(InLocation.m_y < m_gridMapVerticalSize);
+
+		constexpr uint64 BIT_BASE = 1ull << 63;
+
+		uint32 arrayXIdx = InLocation.m_x / 64u;
+		uint8 bitmapXIdx = (uint8)(InLocation.m_x % 64u);
+		uint64 horizontalBitFlag = BIT_BASE >> bitmapXIdx;
+
+		return
+			(
+				m_gridScanningHorizontalBitmap[m_gridMapHorizontalSize / 64 * InLocation.m_y + arrayXIdx]
+				& horizontalBitFlag
+				) != 0;
+
 	}
 	
 };

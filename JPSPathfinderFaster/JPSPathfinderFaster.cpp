@@ -91,7 +91,7 @@ Vector2Int PathfinderPriorityQueue::dequeue()
 	return valueToReturn;
 }
 
-Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpStartNodeIdx, Vector2Int jumpTargetNodeIdx)
+Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpTargetNodeIdx)
 {
 	const uint32 horizontalBitmalHorizontalSize = InGridInfo.m_gridMapHorizontalSize / 64;
 
@@ -102,44 +102,52 @@ Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, Vector2Int ju
 	// scan jump points
 	const uint32 bitmapMaskXIdx = jumpStartNodeIdx.m_x % 64u + 1;
 
-	uint64 curBitmap = InGridInfo.m_gridScanningHorizontalBitmap[horizontalBitmapYIdx * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmap = (curBitmap << bitmapMaskXIdx) >> bitmapMaskXIdx;
-	uint64 curBitmapDown = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx - 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmapDown = (curBitmapDown << bitmapMaskXIdx) >> bitmapMaskXIdx;
-	uint64 curBitmapUp = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx + 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmapUp = (curBitmapUp << bitmapMaskXIdx) >> bitmapMaskXIdx;
+	uint64 curBitmap;
+	uint64 curBitmapDown;
+	uint64 curBitmapUp;
+	uint64 forcedNodeBitmapDown;
+	uint64 forcedNodeBitmapUp;
+	uint64 bitscanResult;
 
-	uint64 forcedNodeBitmapDown = curBitmapDown & ~(curBitmapDown << 1);
-	uint64 forcedNodeBitmapUp = curBitmapUp & ~(curBitmapUp << 1);
-
-	uint64 bitscanResult = forcedNodeBitmapDown | curBitmap | forcedNodeBitmapUp;
-
-	// if scan must stop ( return condition )
-	if (bitscanResult != 0)
+	if (bitmapMaskXIdx < 64)
 	{
-		const int32 closestBlockXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(curBitmap);
-		const int32 closestUpForcedXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(forcedNodeBitmapUp);
-		const int32 closestDownForcedXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(forcedNodeBitmapDown);
+		curBitmap = InGridInfo.m_gridScanningHorizontalBitmap[horizontalBitmapYIdx * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmap = (curBitmap << bitmapMaskXIdx) >> bitmapMaskXIdx;
+		curBitmapDown = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx - 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmapDown = (curBitmapDown << bitmapMaskXIdx) >> bitmapMaskXIdx;
+		curBitmapUp = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx + 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmapUp = (curBitmapUp << bitmapMaskXIdx) >> bitmapMaskXIdx;
 
-		int32 xPosToJump;
+		forcedNodeBitmapDown = curBitmapDown & ~(curBitmapDown << 1);
+		forcedNodeBitmapUp = curBitmapUp & ~(curBitmapUp << 1);
 
-		if (closestBlockXPos <= closestUpForcedXPos && closestBlockXPos <= closestDownForcedXPos)
-			xPosToJump = closestBlockXPos;
-		else if (closestUpForcedXPos > closestDownForcedXPos)
-			xPosToJump = closestDownForcedXPos;
-		else
-			xPosToJump = closestUpForcedXPos;
+		bitscanResult = forcedNodeBitmapDown | curBitmap | forcedNodeBitmapUp;
 
-		
-		if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y && xPosToJump > jumpTargetNodeIdx.m_x)
-			xPosToJump = jumpTargetNodeIdx.m_x;
-		// TODO: 이놈처럼 다른것들도 다 하기
-		
+		// if scan must stop ( return condition )
+		if (bitscanResult != 0)
+		{
+			const int32 closestBlockXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(curBitmap);
+			const int32 closestUpForcedXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(forcedNodeBitmapUp);
+			const int32 closestDownForcedXPos = horizontalBitmapXIdx * 64 + FindLeftmostSet(forcedNodeBitmapDown);
 
-		if (xPosToJump == closestBlockXPos)
-			return Vector2Int::InvalidIdx;
-		else
-			return Vector2Int(xPosToJump, horizontalBitmapYIdx);
+			int32 xPosToJump;
+
+			if (closestBlockXPos <= closestUpForcedXPos && closestBlockXPos <= closestDownForcedXPos)
+				xPosToJump = closestBlockXPos;
+			else if (closestUpForcedXPos > closestDownForcedXPos)
+				xPosToJump = closestDownForcedXPos;
+			else
+				xPosToJump = closestUpForcedXPos;
+
+			if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y &&
+				jumpStartNodeIdx.m_x < jumpTargetNodeIdx.m_x && jumpTargetNodeIdx.m_x < xPosToJump)
+				xPosToJump = jumpTargetNodeIdx.m_x;
+
+			if (xPosToJump == closestBlockXPos)
+				return Vector2Int::InvalidIdx;
+			else
+				return Vector2Int(xPosToJump, horizontalBitmapYIdx);
+		}
 	}
 
 	// scan jump points
@@ -174,6 +182,9 @@ Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, Vector2Int ju
 		else
 			xPosToJump = closestUpForcedXPos;
 
+		if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y &&
+			jumpStartNodeIdx.m_x < jumpTargetNodeIdx.m_x && jumpTargetNodeIdx.m_x < xPosToJump)
+			xPosToJump = jumpTargetNodeIdx.m_x;
 
 		if (xPosToJump == closestBlockXPos)
 			return Vector2Int::InvalidIdx;
@@ -186,7 +197,7 @@ Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, Vector2Int ju
 }
 
 
-Vector2Int bitScanToLeft(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpStartNodeIdx, Vector2Int jumpTargetNodeIdx)
+Vector2Int bitScanToLeft(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpTargetNodeIdx)
 {
 	const uint32 horizontalBitmalHorizontalSize = InGridInfo.m_gridMapHorizontalSize / 64;
 
@@ -197,39 +208,52 @@ Vector2Int bitScanToLeft(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 	// scan from StartPoint
 	const uint32 bitmapMaskXIdx = 64 - jumpStartNodeIdx.m_x % 64u;
 
-	uint64 curBitmap = InGridInfo.m_gridScanningHorizontalBitmap[horizontalBitmapYIdx * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmap = (curBitmap >> bitmapMaskXIdx) << bitmapMaskXIdx;
-	uint64 curBitmapDown = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx - 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmapDown = (curBitmapDown >> bitmapMaskXIdx) << bitmapMaskXIdx;
-	uint64 curBitmapUp = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx + 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
-	curBitmapUp = (curBitmapUp >> bitmapMaskXIdx) << bitmapMaskXIdx;
+	uint64 curBitmap;
+	uint64 curBitmapDown;
+	uint64 curBitmapUp;
+	uint64 forcedNodeBitmapDown;
+	uint64 forcedNodeBitmapUp;
+	uint64 bitscanResult;
 
-	uint64 forcedNodeBitmapDown = curBitmapDown & ~(curBitmapDown >> 1);
-	uint64 forcedNodeBitmapUp = curBitmapUp & ~(curBitmapUp >> 1);
-
-	uint64 bitscanResult = forcedNodeBitmapDown | curBitmap | forcedNodeBitmapUp;
-
-	// if scan must stop ( return condition )
-	if (bitscanResult != 0)
+	if (bitmapMaskXIdx < 64)
 	{
-		const int32 closestBlockXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(curBitmap);
-		const int32 closestUpForcedXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(forcedNodeBitmapUp);
-		const int32 closestDownForcedXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(forcedNodeBitmapDown);
+		curBitmap = InGridInfo.m_gridScanningHorizontalBitmap[horizontalBitmapYIdx * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmap = (curBitmap >> bitmapMaskXIdx) << bitmapMaskXIdx;
+		curBitmapDown = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx - 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmapDown = (curBitmapDown >> bitmapMaskXIdx) << bitmapMaskXIdx;
+		curBitmapUp = InGridInfo.m_gridScanningHorizontalBitmap[(horizontalBitmapYIdx + 1) * horizontalBitmalHorizontalSize + horizontalBitmapXIdx];
+		curBitmapUp = (curBitmapUp >> bitmapMaskXIdx) << bitmapMaskXIdx;
 
-		int32 xPosToJump;
+		forcedNodeBitmapDown = curBitmapDown & ~(curBitmapDown >> 1);
+		forcedNodeBitmapUp = curBitmapUp & ~(curBitmapUp >> 1);
 
-		if (closestBlockXPos >= closestUpForcedXPos && closestBlockXPos >= closestDownForcedXPos)
-			xPosToJump = closestBlockXPos;
-		else if (closestUpForcedXPos < closestDownForcedXPos)
-			xPosToJump = closestDownForcedXPos;
-		else
-			xPosToJump = closestUpForcedXPos;
+		bitscanResult = forcedNodeBitmapDown | curBitmap | forcedNodeBitmapUp;
 
+		// if scan must stop ( return condition )
+		if (bitscanResult != 0)
+		{
+			const int32 closestBlockXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(curBitmap);
+			const int32 closestUpForcedXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(forcedNodeBitmapUp);
+			const int32 closestDownForcedXPos = horizontalBitmapXIdx * 64 + FindRightmostSet(forcedNodeBitmapDown);
 
-		if (xPosToJump == closestBlockXPos)
-			return Vector2Int::InvalidIdx;
-		else
-			return Vector2Int(xPosToJump, horizontalBitmapYIdx);
+			int32 xPosToJump;
+
+			if (closestBlockXPos >= closestUpForcedXPos && closestBlockXPos >= closestDownForcedXPos)
+				xPosToJump = closestBlockXPos;
+			else if (closestUpForcedXPos < closestDownForcedXPos)
+				xPosToJump = closestDownForcedXPos;
+			else
+				xPosToJump = closestUpForcedXPos;
+
+			if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y &&
+				xPosToJump < jumpTargetNodeIdx.m_x && jumpTargetNodeIdx.m_x < jumpStartNodeIdx.m_x)
+				xPosToJump = jumpTargetNodeIdx.m_x;
+
+			if (xPosToJump == closestBlockXPos)
+				return Vector2Int::InvalidIdx;
+			else
+				return Vector2Int(xPosToJump, horizontalBitmapYIdx);
+		}
 	}
 
 	bitscanResult = 0;
@@ -263,6 +287,9 @@ Vector2Int bitScanToLeft(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 		else
 			xPosToJump = closestUpForcedXPos;
 
+		if (jumpStartNodeIdx.m_y == jumpTargetNodeIdx.m_y &&
+			xPosToJump < jumpTargetNodeIdx.m_x && jumpTargetNodeIdx.m_x < jumpStartNodeIdx.m_x)
+			xPosToJump = jumpTargetNodeIdx.m_x;
 
 		if (xPosToJump == closestBlockXPos)
 			return Vector2Int::InvalidIdx;
@@ -275,7 +302,7 @@ Vector2Int bitScanToLeft(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 }
 
 
-Vector2Int bitScanToUp(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpStartNodeIdx, Vector2Int jumpTargetNodeIdx)
+Vector2Int bitScanToUp(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpTargetNodeIdx)
 {
 	const uint32 verticalBitmapHorizontalSize = InGridInfo.m_gridMapHorizontalSize;
 	const uint32 verticalBitmapVerticalSize = InGridInfo.m_gridMapVerticalSize / 64;
@@ -287,39 +314,52 @@ Vector2Int bitScanToUp(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpS
 	// scan from StartPoint
 	const uint32 bitmapMaskYIdx = jumpStartNodeIdx.m_y % 64u + 1;
 
-	uint64 curBitmap = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + verticalBitmapXIdx];
-	curBitmap = (curBitmap << bitmapMaskYIdx) >> bitmapMaskYIdx;
-	uint64 curBitmapLeft = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx - 1)];
-	curBitmapLeft = (curBitmapLeft << bitmapMaskYIdx) >> bitmapMaskYIdx;
-	uint64 curBitmapRight = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx + 1)];
-	curBitmapRight = (curBitmapRight << bitmapMaskYIdx) >> bitmapMaskYIdx;
+	uint64 curBitmap;
+	uint64 curBitmapLeft;
+	uint64 curBitmapRight;
+	uint64 forcedNodeBitmapLeft;
+	uint64 forcedNodeBitmapRight;
+	uint64 bitscanResult;
 
-	uint64 forcedNodeBitmapLeft = curBitmapLeft & ~(curBitmapLeft << 1);
-	uint64 forcedNodeBitmapRight = curBitmapRight & ~(curBitmapRight << 1);
-
-	uint64 bitscanResult = forcedNodeBitmapLeft | curBitmap | forcedNodeBitmapRight;
-
-	// if scan must stop ( return condition )
-	if (bitscanResult != 0)
+	if (bitmapMaskYIdx < 64)
 	{
-		const int32 closestBlockYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(curBitmap);
-		const int32 closestLeftForcedYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(forcedNodeBitmapLeft);
-		const int32 closestRightForcedYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(forcedNodeBitmapRight);
+		curBitmap = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + verticalBitmapXIdx];
+		curBitmap = (curBitmap << bitmapMaskYIdx) >> bitmapMaskYIdx;
+		curBitmapLeft = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx - 1)];
+		curBitmapLeft = (curBitmapLeft << bitmapMaskYIdx) >> bitmapMaskYIdx;
+		curBitmapRight = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx + 1)];
+		curBitmapRight = (curBitmapRight << bitmapMaskYIdx) >> bitmapMaskYIdx;
 
-		int32 yPosToJump;
+		uint64 forcedNodeBitmapLeft = curBitmapLeft & ~(curBitmapLeft << 1);
+		uint64 forcedNodeBitmapRight = curBitmapRight & ~(curBitmapRight << 1);
 
-		if (closestBlockYPos <= closestLeftForcedYPos && closestBlockYPos <= closestRightForcedYPos)
-			yPosToJump = closestBlockYPos;
-		else if (closestLeftForcedYPos < closestRightForcedYPos)
-			yPosToJump = closestLeftForcedYPos;
-		else
-			yPosToJump = closestRightForcedYPos;
+		uint64 bitscanResult = forcedNodeBitmapLeft | curBitmap | forcedNodeBitmapRight;
 
+		// if scan must stop ( return condition )
+		if (bitscanResult != 0)
+		{
+			const int32 closestBlockYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(curBitmap);
+			const int32 closestLeftForcedYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(forcedNodeBitmapLeft);
+			const int32 closestRightForcedYPos = verticalBitmapYIdx * 64 + FindLeftmostSet(forcedNodeBitmapRight);
 
-		if (yPosToJump == closestBlockYPos)
-			return Vector2Int::InvalidIdx;
-		else
-			return Vector2Int(verticalBitmapXIdx, yPosToJump);
+			int32 yPosToJump;
+
+			if (closestBlockYPos <= closestLeftForcedYPos && closestBlockYPos <= closestRightForcedYPos)
+				yPosToJump = closestBlockYPos;
+			else if (closestLeftForcedYPos < closestRightForcedYPos)
+				yPosToJump = closestLeftForcedYPos;
+			else
+				yPosToJump = closestRightForcedYPos;
+
+			if (jumpStartNodeIdx.m_x == jumpTargetNodeIdx.m_x &&
+				jumpStartNodeIdx.m_y < jumpTargetNodeIdx.m_y && jumpTargetNodeIdx.m_y < yPosToJump)
+				yPosToJump = jumpTargetNodeIdx.m_y;
+
+			if (yPosToJump == closestBlockYPos)
+				return Vector2Int::InvalidIdx;
+			else
+				return Vector2Int(verticalBitmapXIdx, yPosToJump);
+		}
 	}
 
 	bitscanResult = 0;
@@ -353,6 +393,9 @@ Vector2Int bitScanToUp(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpS
 		else
 			yPosToJump = closestRightForcedYPos;
 
+		if (jumpStartNodeIdx.m_x == jumpTargetNodeIdx.m_x &&
+			jumpStartNodeIdx.m_y < jumpTargetNodeIdx.m_y && jumpTargetNodeIdx.m_y < yPosToJump)
+			yPosToJump = jumpTargetNodeIdx.m_y;
 
 		if (yPosToJump == closestBlockYPos)
 			return Vector2Int::InvalidIdx;
@@ -364,7 +407,7 @@ Vector2Int bitScanToUp(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpS
 	return Vector2Int::InvalidIdx;
 }
 
-Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jumpStartNodeIdx, Vector2Int jumpTargetNodeIdx)
+Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpTargetNodeIdx)
 {
 	const uint32 verticalBitmapHorizontalSize = InGridInfo.m_gridMapHorizontalSize;
 	const uint32 verticalBitmapVerticalSize = InGridInfo.m_gridMapVerticalSize / 64;
@@ -376,39 +419,52 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 	// scan from StartPoint
 	const uint32 bitmapMaskYIdx = 64 - jumpStartNodeIdx.m_y % 64u;
 
-	uint64 curBitmap = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + verticalBitmapXIdx];
-	curBitmap = (curBitmap >> bitmapMaskYIdx) << bitmapMaskYIdx;
-	uint64 curBitmapLeft = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx - 1)];
-	curBitmapLeft = (curBitmapLeft >> bitmapMaskYIdx) << bitmapMaskYIdx;
-	uint64 curBitmapRight = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx + 1)];
-	curBitmapRight = (curBitmapRight >> bitmapMaskYIdx) << bitmapMaskYIdx;
+	uint64 curBitmap;
+	uint64 curBitmapLeft;
+	uint64 curBitmapRight;
+	uint64 forcedNodeBitmapLeft;
+	uint64 forcedNodeBitmapRight;
+	uint64 bitscanResult;
 
-	uint64 forcedNodeBitmapLeft = curBitmapLeft & ~(curBitmapLeft >> 1);
-	uint64 forcedNodeBitmapRight = curBitmapRight & ~(curBitmapRight >> 1);
+	if (bitmapMaskYIdx < 64) {
 
-	uint64 bitscanResult = forcedNodeBitmapLeft | curBitmap | forcedNodeBitmapRight;
+		curBitmap = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + verticalBitmapXIdx];
+		curBitmap = (curBitmap >> bitmapMaskYIdx) << bitmapMaskYIdx;
+		curBitmapLeft = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx - 1)];
+		curBitmapLeft = (curBitmapLeft >> bitmapMaskYIdx) << bitmapMaskYIdx;
+		curBitmapRight = InGridInfo.m_gridScanningVerticalBitmap[verticalBitmapYIdx * verticalBitmapHorizontalSize + (verticalBitmapXIdx + 1)];
+		curBitmapRight = (curBitmapRight >> bitmapMaskYIdx) << bitmapMaskYIdx;
 
-	// if scan must stop ( return condition )
-	if (bitscanResult != 0)
-	{
-		const int32 closestBlockYPos = verticalBitmapYIdx * 64 + FindRightmostSet(curBitmap);
-		const int32 closestLeftForcedYPos = verticalBitmapYIdx * 64 + FindRightmostSet(forcedNodeBitmapLeft);
-		const int32 closestRightForcedYPos = verticalBitmapYIdx * 64 + FindRightmostSet(forcedNodeBitmapRight);
+		forcedNodeBitmapLeft = curBitmapLeft & ~(curBitmapLeft >> 1);
+		forcedNodeBitmapRight = curBitmapRight & ~(curBitmapRight >> 1);
 
-		int32 yPosToJump;
+		bitscanResult = forcedNodeBitmapLeft | curBitmap | forcedNodeBitmapRight;
 
-		if (closestBlockYPos >= closestLeftForcedYPos && closestBlockYPos >= closestRightForcedYPos)
-			yPosToJump = closestBlockYPos;
-		else if (closestLeftForcedYPos < closestRightForcedYPos)
-			yPosToJump = closestRightForcedYPos;
-		else
-			yPosToJump = closestLeftForcedYPos;
+		// if scan must stop ( return condition )
+		if (bitscanResult != 0)
+		{
+			const int32 closestBlockYPos = verticalBitmapYIdx * 64 + FindRightmostSet(curBitmap);
+			const int32 closestLeftForcedYPos = verticalBitmapYIdx * 64 + FindRightmostSet(forcedNodeBitmapLeft);
+			const int32 closestRightForcedYPos = verticalBitmapYIdx * 64 + FindRightmostSet(forcedNodeBitmapRight);
 
+			int32 yPosToJump;
 
-		if (yPosToJump == closestBlockYPos)
-			return Vector2Int::InvalidIdx;
-		else
-			return Vector2Int(verticalBitmapXIdx, yPosToJump);
+			if (closestBlockYPos >= closestLeftForcedYPos && closestBlockYPos >= closestRightForcedYPos)
+				yPosToJump = closestBlockYPos;
+			else if (closestLeftForcedYPos < closestRightForcedYPos)
+				yPosToJump = closestRightForcedYPos;
+			else
+				yPosToJump = closestLeftForcedYPos;
+
+			if (jumpStartNodeIdx.m_x == jumpTargetNodeIdx.m_x &&
+				yPosToJump < jumpTargetNodeIdx.m_y && jumpTargetNodeIdx.m_y < jumpStartNodeIdx.m_y)
+				yPosToJump = jumpTargetNodeIdx.m_y;
+
+			if (yPosToJump == closestBlockYPos)
+				return Vector2Int::InvalidIdx;
+			else
+				return Vector2Int(verticalBitmapXIdx, yPosToJump);
+		}
 	}
 
 	bitscanResult = 0;
@@ -442,6 +498,9 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 		else
 			yPosToJump = closestLeftForcedYPos;
 
+		if (jumpStartNodeIdx.m_x == jumpTargetNodeIdx.m_x &&
+			yPosToJump < jumpTargetNodeIdx.m_y && jumpTargetNodeIdx.m_y < jumpStartNodeIdx.m_y)
+			yPosToJump = jumpTargetNodeIdx.m_y;
 
 		if (yPosToJump == closestBlockYPos)
 			return Vector2Int::InvalidIdx;
@@ -454,7 +513,6 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, Vector2Int jum
 }
 
 
-
 bool __stdcall FindPathJPSFaster(
 	JPSGridInfoToFindPath& InGridInfo,
 	PathfinderPriorityQueue& InPathFinderPriorityQueuePool,
@@ -464,16 +522,14 @@ bool __stdcall FindPathJPSFaster(
 {
 	OutPathSize = 0;
 
-	if (InStart.m_x < 0 || InStart.m_x >= InGridInfo.m_gridMapHorizontalSize ||
-		InStart.m_y < 0 || InStart.m_y >= InGridInfo.m_gridMapVerticalSize ||
-		InEnd.m_x < 0 || InEnd.m_x >= InGridInfo.m_gridMapHorizontalSize ||
-		InEnd.m_y < 0 || InEnd.m_y >= InGridInfo.m_gridMapVerticalSize)
+	if (InStart.m_x < 0 || InStart.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize ||
+		InStart.m_y < 0 || InStart.m_y >= (int32)InGridInfo.m_gridMapVerticalSize ||
+		InEnd.m_x < 0 || InEnd.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize ||
+		InEnd.m_y < 0 || InEnd.m_y >= (int32)InGridInfo.m_gridMapVerticalSize)
 	{
 		return false;
 	}
 
-	constexpr uint64 BIT_BASE = static_cast<uint64>(1) << 63;
-	
 
 	OutPath[OutPathSize++] = bitScanToLeft(InGridInfo, InStart, InEnd);
 	OutPath[OutPathSize++] = bitScanToRight(InGridInfo, InStart, InEnd);
