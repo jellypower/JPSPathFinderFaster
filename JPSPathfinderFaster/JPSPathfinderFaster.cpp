@@ -29,10 +29,8 @@ inline int32 FindRightmostSet(uint64 bitmap)
 		return -1;
 }
 
-void PathfinderPriorityQueue::enqueue(const PriorityQueuePair dataToPush)
+bool PathfinderPriorityQueue::enqueue(const PriorityQueuePair dataToPush)
 {
-	assert(m_priorityQueueCapacity > m_priorityQueueSize);
-
 	const uint32 pqLastIdx = m_priorityQueueSize++;
 	m_priorityQueueData[pqLastIdx] = dataToPush;
 
@@ -50,6 +48,8 @@ void PathfinderPriorityQueue::enqueue(const PriorityQueuePair dataToPush)
 		curHeapIdx = parentHeapIdx;
 	}
 
+	if (m_priorityQueueCapacity <= m_priorityQueueSize) return false;
+	return true;
 }
 
 Vector2Int PathfinderPriorityQueue::dequeue()
@@ -95,7 +95,7 @@ Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, const Vector2
 {
 	const uint32 horizontalBitmalHorizontalSize = InGridInfo.m_gridMapHorizontalSize / 64;
 
-	uint32 horizontalBitmapXIdx = jumpStartNodeIdx.m_x / 64u; 
+	uint32 horizontalBitmapXIdx = jumpStartNodeIdx.m_x / 64u;
 	const uint32 horizontalBitmapYIdx = jumpStartNodeIdx.m_y;
 
 
@@ -468,7 +468,7 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2I
 	}
 
 	bitscanResult = 0;
-	while ( bitscanResult == 0 && verticalBitmapYIdx > 0 )
+	while (bitscanResult == 0 && verticalBitmapYIdx > 0)
 	{
 		--verticalBitmapYIdx;
 
@@ -512,31 +512,352 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2I
 	return Vector2Int::InvalidIdx;
 }
 
-
-bool __stdcall FindPathJPSFaster(
-	JPSGridInfoToFindPath& InGridInfo,
-	PathfinderPriorityQueue& InPathFinderPriorityQueuePool,
-	PathfinderClostList& InPathFinderCloseListPool,
-	Vector2Int InStart, Vector2Int InEnd,
-	Vector2Int* OutPath, uint32& OutPathSize)
+Vector2Int bitScanToRightUp(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& goalNodeIdx)
 {
-	OutPathSize = 0;
+	Vector2Int curNodeIdx = jumpStartNodeIdx;
 
-	if (InStart.m_x < 0 || InStart.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize ||
-		InStart.m_y < 0 || InStart.m_y >= (int32)InGridInfo.m_gridMapVerticalSize ||
-		InEnd.m_x < 0 || InEnd.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize ||
-		InEnd.m_y < 0 || InEnd.m_y >= (int32)InGridInfo.m_gridMapVerticalSize)
+	while (true)
 	{
-		return false;
+		curNodeIdx.m_x += 1;
+		curNodeIdx.m_y += 1;
+
+
+		const int32 curXIdx = curNodeIdx.m_x;
+		const int32 curYIdx = curNodeIdx.m_y;
+
+		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+
+		if (
+			curNodeIdx == goalNodeIdx ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx + 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx)) ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx - 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx - 1))
+			)
+		{
+			return curNodeIdx;
+		}
+
+		Vector2Int jumpTarget = bitScanToRight(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+
+		jumpTarget = bitScanToUp(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+	}
+
+}
+
+Vector2Int bitScanToRightDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& goalNodeIdx)
+{
+	Vector2Int curNodeIdx = jumpStartNodeIdx;
+
+	while (true)
+	{
+		curNodeIdx.m_x += 1;
+		curNodeIdx.m_y -= 1;
+
+
+		const int32 curXIdx = curNodeIdx.m_x;
+		const int32 curYIdx = curNodeIdx.m_y;
+
+		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+
+		if (
+			curNodeIdx == goalNodeIdx ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx - 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx)) ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx + 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx + 1))
+			)
+		{
+			return curNodeIdx;
+		}
+
+		Vector2Int jumpTarget = bitScanToRight(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+
+		jumpTarget = bitScanToDown(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+	}
+
+}
+
+Vector2Int bitScanToLeftUp(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& goalNodeIdx)
+{
+	Vector2Int curNodeIdx = jumpStartNodeIdx;
+
+	while (true)
+	{
+		curNodeIdx.m_x -= 1;
+		curNodeIdx.m_y += 1;
+
+		const int32 curXIdx = curNodeIdx.m_x;
+		const int32 curYIdx = curNodeIdx.m_y;
+
+		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+
+		if (
+			curNodeIdx == goalNodeIdx ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx + 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx)) ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx - 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx - 1))
+			)
+		{
+			return curNodeIdx;
+		}
+
+		Vector2Int jumpTarget = bitScanToLeft(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+
+		jumpTarget = bitScanToUp(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+	}
+
+}
+
+Vector2Int bitScanToLeftDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& goalNodeIdx)
+{
+	Vector2Int curNodeIdx = jumpStartNodeIdx;
+
+	while (true)
+	{
+		curNodeIdx.m_x -= 1;
+		curNodeIdx.m_y -= 1;
+
+		const int32 curXIdx = curNodeIdx.m_x;
+		const int32 curYIdx = curNodeIdx.m_y;
+
+		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+
+		if (
+			curNodeIdx == goalNodeIdx ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx - 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx)) ||
+			!InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx + 1)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx + 1))
+			)
+		{
+			return curNodeIdx;
+		}
+
+		Vector2Int jumpTarget = bitScanToLeft(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+
+		jumpTarget = bitScanToDown(InGridInfo, curNodeIdx, goalNodeIdx);
+		if (jumpTarget.isValid())
+			return curNodeIdx;
+	}
+
+}
+
+bool updateJumpPoint(
+	JPSGridInfoToFindPath& InGridInfo,
+	PathfinderPriorityQueue& PathFinderPriorityQueuePool,
+	const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpEndNodeIdx, const Vector2Int& goalNodeIdx)
+{
+	if (jumpEndNodeIdx.isValid() == false) return true;
+
+	const PathFinderNode& jumpStartNode = InGridInfo.GetNodeAt(jumpStartNodeIdx);
+	PathFinderNode& jumpEndNode = InGridInfo.GetNodeAt(jumpEndNodeIdx);
+
+	if (jumpEndNode.m_onCloseList) return true;
+
+	const float hCost = Vector2Int::OctileDistance(jumpEndNodeIdx, goalNodeIdx);
+	const float newGCost = jumpStartNode.m_gCost + Vector2Int::OctileDistance(jumpStartNodeIdx, jumpEndNodeIdx);
+
+	if (jumpEndNode.m_gCost + hCost > newGCost + hCost)
+	{
+		jumpEndNode.m_paretnNode = jumpStartNodeIdx;
+		jumpEndNode.m_gCost = newGCost;
+		return PathFinderPriorityQueuePool.enqueue(PriorityQueuePair(jumpEndNodeIdx, newGCost + hCost));
+	}
+
+	return true;
+}
+
+
+
+PathfindResult __stdcall FindPathJPSFaster(
+	JPSGridInfoToFindPath& InGridInfo,
+	PathfinderPriorityQueue& PathFinderPriorityQueuePool,
+	PathfinderClostList& PathFinderCloseListPool,
+	Vector2Int InStart, Vector2Int InEnd,
+	OutPathList& OutPath)
+{
+	if (InStart.m_x <= 0 || InStart.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize - 1 ||
+		InStart.m_y <= 0 || InStart.m_y >= (int32)InGridInfo.m_gridMapVerticalSize - 1 ||
+		InEnd.m_x <= 0 || InEnd.m_x >= (int32)InGridInfo.m_gridMapHorizontalSize - 1 ||
+		InEnd.m_y <= 0 || InEnd.m_y >= (int32)InGridInfo.m_gridMapVerticalSize - 1)
+	{
+		return PathfindResult::StartOrEndPointOutOfBound;
+	}
+
+	PathFinderCloseListPool.clear();
+	PathFinderPriorityQueuePool.clear();
+	OutPath.clear();
+
+	if (InStart.isValid() == false || InEnd.isValid() == false) PathfindResult::StartOrEndPointOutOfBound;
+	if (InStart == InEnd)
+	{
+		OutPath.push_back(InEnd);
+		OutPath.push_back(InStart);
+		return PathfindResult::Found;
+	}
+
+	PathFinderPriorityQueuePool.enqueue(PriorityQueuePair(InStart, Vector2Int::OctileDistance(InStart, InEnd)));
+	InGridInfo.GetNodeAt(InStart).m_gCost = 0;
+
+	bool isPathFound = false;
+	bool isCloseListMax = false;
+	bool isPriorityQueueMax = false;
+
+	while (PathFinderPriorityQueuePool.isEmpty() == false)
+	{
+		Vector2Int nodeIdxToStartJump = PathFinderPriorityQueuePool.dequeue();
+		PathFinderNode& NodeToStartJump = InGridInfo.GetNodeAt(nodeIdxToStartJump);
+
+		if (nodeIdxToStartJump == InEnd)
+		{
+			isCloseListMax = PathFinderCloseListPool.push_back(nodeIdxToStartJump) == false;
+			NodeToStartJump.m_onCloseList = true;
+			isPathFound = true;
+			break;
+		}
+
+		if (NodeToStartJump.m_onCloseList)
+			continue;
+
+		isCloseListMax = PathFinderCloseListPool.push_back(nodeIdxToStartJump) == false;
+		NodeToStartJump.m_onCloseList = true;
+		if (isCloseListMax)
+			break;
+
+		// jump process
+		{
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToRight(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToLeft(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToUp(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToDown(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToRightUp(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToRightDown(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToLeftUp(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+
+			isPriorityQueueMax =
+				updateJumpPoint(InGridInfo, PathFinderPriorityQueuePool,
+					nodeIdxToStartJump, bitScanToLeftDown(InGridInfo, nodeIdxToStartJump, InEnd), InEnd) == false;
+			if (isPriorityQueueMax) break;
+		}
+
 	}
 
 
-	OutPath[OutPathSize++] = bitScanToLeft(InGridInfo, InStart, InEnd);
-	OutPath[OutPathSize++] = bitScanToRight(InGridInfo, InStart, InEnd);
-	OutPath[OutPathSize++] = bitScanToUp(InGridInfo, InStart, InEnd);
-	OutPath[OutPathSize++] = bitScanToDown(InGridInfo, InStart, InEnd);
+	bool isOutPathMax = false;
+	if (isPathFound)
+	{
+		isOutPathMax = (OutPath.push_back(InEnd) == false);
+		
+		Vector2Int childNodeIdx = InEnd;
+		Vector2Int nodeIdx = InGridInfo.GetNodeAt(InEnd).m_paretnNode;
+		Vector2Int parentNodeIdx = InGridInfo.GetNodeAt(nodeIdx).m_paretnNode;
 
+		// exclude useless ways
+		while (parentNodeIdx.isValid() && isOutPathMax == false)
+		{
+			enum class DiffType {
+				HORIZONTAL,
+				VETICAL,
+				DIAGONAL
+			};
 
-	return true;
+			Vector2Int diff1 = Vector2Int(
+				Abs32i(childNodeIdx.m_x - nodeIdx.m_x),
+				Abs32i(childNodeIdx.m_y - nodeIdx.m_y));
+
+			Vector2Int diff2 = Vector2Int(
+				Abs32i(parentNodeIdx.m_x - nodeIdx.m_x),
+				Abs32i(parentNodeIdx.m_y - nodeIdx.m_y));
+
+			DiffType diff1DiffType;
+			if (diff1.m_x >= 1 && diff1.m_y >= 1)
+				diff1DiffType = DiffType::DIAGONAL;
+			else if (diff1.m_x >= 1)
+				diff1DiffType = DiffType::HORIZONTAL;
+			else
+				diff1DiffType = DiffType::VETICAL;
+
+			DiffType diff2DiffType;
+			if (diff2.m_x >= 1 && diff2.m_y >= 1)
+				diff2DiffType = DiffType::DIAGONAL;
+			else if (diff2.m_x >= 1)
+				diff2DiffType = DiffType::HORIZONTAL;
+			else
+				diff2DiffType = DiffType::VETICAL;
+
+			if (diff1DiffType != diff2DiffType)
+				isOutPathMax = (OutPath.push_back(nodeIdx) == false);
+
+			childNodeIdx = nodeIdx;
+			nodeIdx = parentNodeIdx;
+			parentNodeIdx = InGridInfo.GetNodeAt(parentNodeIdx).m_paretnNode;
+		}
+
+		isOutPathMax = (OutPath.push_back(InStart) == false);
+		
+	}
+
+	// init pathfinder grid state
+	for (int i = 0; i < PathFinderPriorityQueuePool.m_priorityQueueSize; i++)
+	{
+		PathFinderNode& node = InGridInfo.GetNodeAt(PathFinderPriorityQueuePool.m_priorityQueueData[i].m_nodeIdx);
+		node.m_paretnNode = Vector2Int::InvalidIdx;
+		node.m_gCost = FLOAT_MAX;
+	}
+
+	for (int i = 0; i < PathFinderCloseListPool.m_closeListSize; i++)
+	{
+		PathFinderNode& node = InGridInfo.GetNodeAt(PathFinderCloseListPool.m_closeListData[i]);
+		node.m_onCloseList = false;
+		node.m_paretnNode = Vector2Int::InvalidIdx;
+		node.m_gCost = FLOAT_MAX;
+	}
+
+	if (isOutPathMax)
+		return PathfindResult::PathResultPoolOverflow;
+	else if (isPathFound)
+		return PathfindResult::Found;
+	else if (isPriorityQueueMax)
+		return PathfindResult::PriorityQueuePoolOverflow;
+	else if (isCloseListMax)
+		return PathfindResult::CloseListPoolOverflow;
+	else
+		return PathfindResult::NotFound;
 }
 
