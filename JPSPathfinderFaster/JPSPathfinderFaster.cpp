@@ -1,8 +1,6 @@
-﻿// JPSPathfinderFaster.cpp : DLL을 위해 내보낸 함수를 정의합니다.
-//
+﻿#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
-#include "pch.h"
-#include "framework.h"
 #include "JPSPathfinderFaster.h"
 
 

@@ -1,17 +1,18 @@
-﻿#include <assert.h>
-#ifdef JPSPATHFINDERFASTER_EXPORTS
+﻿#ifdef JPSPATHFINDERFASTER_EXPORTS
 #define JPSPATHFINDERFASTER_API __declspec(dllexport)
 #else
 #define JPSPATHFINDERFASTER_API __declspec(dllimport)
 #endif
 
-#define FLOAT_MAX 3.40282347E+38F
 
+#include <assert.h>
+
+
+#define FLOAT_MAX 3.40282347E+38F
 #define NOOP
 
 
 typedef int int32;
-
 typedef unsigned int uint32;
 typedef unsigned long long int uint64;
 typedef unsigned char uint8;
