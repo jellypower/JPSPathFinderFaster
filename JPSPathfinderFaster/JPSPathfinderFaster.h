@@ -17,6 +17,9 @@ typedef unsigned int uint32;
 typedef unsigned long long int uint64;
 typedef unsigned char uint8;
 
+#define FORCEINLINE __forceinline
+
+
 enum class PathfindResult : uint8
 {
 	Found = 0,
@@ -27,12 +30,12 @@ enum class PathfindResult : uint8
 	CloseListPoolOverflow = 5,
 };
 
-inline static int32 Abs32i(int32 InVal)
+FORCEINLINE static int32 Abs32i(int32 InVal)
 {
 	return InVal < 0 ? (InVal * -1) : InVal;
 }
 
-inline static int32 Min32i(int32 lhs, int32 rhs)
+FORCEINLINE static int32 Min32i(int32 lhs, int32 rhs)
 {
 	return lhs < rhs ? lhs : rhs;
 }
@@ -48,10 +51,10 @@ struct Vector2Int
 	}
 
 
-	inline bool operator==(Vector2Int rhs) { return m_x == rhs.m_x && m_y == rhs.m_y; }
-	inline bool isValid() const { return (m_x >= 0) && (m_y >= 0); }
+	FORCEINLINE bool operator==(Vector2Int rhs) { return m_x == rhs.m_x && m_y == rhs.m_y; }
+	FORCEINLINE bool isValid() const { return (m_x >= 0) && (m_y >= 0); }
 
-	inline static float OctileDistance(const Vector2Int pos1,const Vector2Int pos2)
+	FORCEINLINE static float OctileDistance(const Vector2Int pos1,const Vector2Int pos2)
 	{
 		constexpr float DIAGONAL_DISTANCE_BASE = 1.4142135623730950f;
 
@@ -93,9 +96,9 @@ struct PathfinderPriorityQueue
 	bool enqueue(const PriorityQueuePair dataToPush);
 	Vector2Int dequeue();
 	
-	inline void clear() { m_priorityQueueSize = 0;  }
-	inline bool isEmpty() { return m_priorityQueueSize == 0; }
-	inline bool isFull() { return m_priorityQueueSize == m_priorityQueueCapacity; }
+	FORCEINLINE void clear() { m_priorityQueueSize = 0;  }
+	FORCEINLINE bool isEmpty() { return m_priorityQueueSize == 0; }
+	FORCEINLINE bool isFull() { return m_priorityQueueSize == m_priorityQueueCapacity; }
 };
 
 struct PathfinderClostList
@@ -104,14 +107,14 @@ struct PathfinderClostList
 	uint32 m_closeListCapacity;
 	uint32 m_closeListSize;
 
-	inline bool push_back(Vector2Int InVector)
+	FORCEINLINE bool push_back(Vector2Int InVector)
 	{
 		m_closeListData[m_closeListSize++] = InVector; 
 		if (m_closeListCapacity <= m_closeListSize) return false;
 		return true;
 	}
 
-	inline void clear(){ m_closeListSize = 0; }
+	FORCEINLINE void clear(){ m_closeListSize = 0; }
 
 };
 
@@ -121,14 +124,14 @@ struct OutPathList
 	uint32 m_outPathListCapacity;
 	uint32 m_outPathListSize;
 
-	inline bool push_back(Vector2Int InVector)
+	FORCEINLINE bool push_back(Vector2Int InVector)
 	{
 		if (m_outPathListCapacity <= m_outPathListSize) return false;
 		m_outPathListData[m_outPathListSize++] = InVector;
 		return true;
 	}
 
-	inline void clear() { m_outPathListSize = 0; }
+	FORCEINLINE void clear() { m_outPathListSize = 0; }
 };
 
 struct JPSGridInfoToFindPath
@@ -144,7 +147,7 @@ struct JPSGridInfoToFindPath
 	uint32 m_gridMapVerticalSize;
 
 
-	inline PathFinderNode& GetNodeAt(const Vector2Int InLocation) const
+	FORCEINLINE PathFinderNode& GetNodeAt(const Vector2Int InLocation) const
 	{
 		assert(InLocation.m_x < m_gridMapHorizontalSize);
 		assert(InLocation.m_y < m_gridMapVerticalSize);
@@ -152,7 +155,7 @@ struct JPSGridInfoToFindPath
 		return m_gridMapPathfinderInfo[m_gridMapHorizontalSize * InLocation.m_y + InLocation.m_x];
 	}
 
-	inline bool IsBlockAt(const Vector2Int InLocation) const
+	FORCEINLINE bool IsBlockAt(const Vector2Int InLocation) const
 	{
 		assert(InLocation.m_x < m_gridMapHorizontalSize);
 		assert(InLocation.m_y < m_gridMapVerticalSize);

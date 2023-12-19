@@ -1,12 +1,12 @@
 ﻿#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
 #include "JPSPathfinderFaster.h"
 
 
 Vector2Int const Vector2Int::InvalidIdx = Vector2Int(-1, -1);
 
-inline int32 FindLeftmostSet(uint64 bitmap)
+
+FORCEINLINE int32 FindLeftmostSet(uint64 bitmap)
 {
 	uint32 result;
 
@@ -17,7 +17,7 @@ inline int32 FindLeftmostSet(uint64 bitmap)
 
 }
 
-inline int32 FindRightmostSet(uint64 bitmap)
+FORCEINLINE int32 FindRightmostSet(uint64 bitmap)
 {
 	uint32 result;
 
@@ -26,6 +26,7 @@ inline int32 FindRightmostSet(uint64 bitmap)
 	else
 		return -1;
 }
+
 
 bool PathfinderPriorityQueue::enqueue(const PriorityQueuePair dataToPush)
 {
@@ -88,6 +89,7 @@ Vector2Int PathfinderPriorityQueue::dequeue()
 
 	return valueToReturn;
 }
+
 
 Vector2Int bitScanToRight(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& jumpTargetNodeIdx)
 {
@@ -510,6 +512,7 @@ Vector2Int bitScanToDown(const JPSGridInfoToFindPath& InGridInfo, const Vector2I
 	return Vector2Int::InvalidIdx;
 }
 
+
 Vector2Int bitScanToRightUp(const JPSGridInfoToFindPath& InGridInfo, const Vector2Int& jumpStartNodeIdx, const Vector2Int& goalNodeIdx)
 {
 	Vector2Int curNodeIdx = jumpStartNodeIdx;
@@ -648,6 +651,7 @@ Vector2Int bitScanToLeftDown(const JPSGridInfoToFindPath& InGridInfo, const Vect
 
 }
 
+
 bool updateJumpPoint(
 	JPSGridInfoToFindPath& InGridInfo,
 	PathfinderPriorityQueue& PathFinderPriorityQueuePool,
@@ -672,6 +676,7 @@ bool updateJumpPoint(
 
 	return true;
 }
+
 
 
 
@@ -858,4 +863,3 @@ PathfindResult __stdcall FindPathJPSFaster(
 	else
 		return PathfindResult::NotFound;
 }
-
