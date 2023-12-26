@@ -84,6 +84,7 @@ struct PathFinderNode
 {
 	float m_gCost = 0;
 	bool m_onCloseList = false;
+	bool m_isBlock = false;
 	Vector2Int m_paretnNode = Vector2Int(-1,-1);
 }; 
 
@@ -160,18 +161,7 @@ struct JPSGridInfoToFindPath
 		assert(InLocation.m_x < m_gridMapHorizontalSize);
 		assert(InLocation.m_y < m_gridMapVerticalSize);
 
-		constexpr uint64 BIT_BASE = 1ull << 63;
-
-		uint32 arrayXIdx = InLocation.m_x / 64u;
-		uint32 bitmapXIdx = InLocation.m_x % 64u;
-		uint64 horizontalBitFlag = BIT_BASE >> bitmapXIdx;
-
-		return
-			(
-				m_gridScanningHorizontalBitmap[m_gridMapHorizontalSize / 64 * InLocation.m_y + arrayXIdx]
-				& horizontalBitFlag
-				) != 0;
-
+		return m_gridMapPathfinderInfo[m_gridMapHorizontalSize * InLocation.m_y + InLocation.m_x].m_isBlock;
 	}
 	
 };

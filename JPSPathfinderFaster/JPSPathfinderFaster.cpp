@@ -526,7 +526,10 @@ Vector2Int bitScanToRightUp(const JPSGridInfoToFindPath& InGridInfo, const Vecto
 		const int32 curXIdx = curNodeIdx.m_x;
 		const int32 curYIdx = curNodeIdx.m_y;
 
-		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+		if (InGridInfo.IsBlockAt(curNodeIdx) ||
+			(InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx - 1)))
+			)
+			return Vector2Int::InvalidIdx;
 
 		if (
 			curNodeIdx == goalNodeIdx ||
@@ -561,7 +564,10 @@ Vector2Int bitScanToRightDown(const JPSGridInfoToFindPath& InGridInfo, const Vec
 		const int32 curXIdx = curNodeIdx.m_x;
 		const int32 curYIdx = curNodeIdx.m_y;
 
-		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+		if (InGridInfo.IsBlockAt(curNodeIdx) ||
+			(InGridInfo.IsBlockAt(Vector2Int(curXIdx - 1, curYIdx)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx + 1)))
+			)
+			return Vector2Int::InvalidIdx;
 
 		if (
 			curNodeIdx == goalNodeIdx ||
@@ -595,7 +601,10 @@ Vector2Int bitScanToLeftUp(const JPSGridInfoToFindPath& InGridInfo, const Vector
 		const int32 curXIdx = curNodeIdx.m_x;
 		const int32 curYIdx = curNodeIdx.m_y;
 
-		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+		if (InGridInfo.IsBlockAt(curNodeIdx) ||
+			(InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx - 1)))
+			)
+			return Vector2Int::InvalidIdx;
 
 		if (
 			curNodeIdx == goalNodeIdx ||
@@ -629,7 +638,10 @@ Vector2Int bitScanToLeftDown(const JPSGridInfoToFindPath& InGridInfo, const Vect
 		const int32 curXIdx = curNodeIdx.m_x;
 		const int32 curYIdx = curNodeIdx.m_y;
 
-		if (InGridInfo.IsBlockAt(curNodeIdx)) return Vector2Int::InvalidIdx;
+		if (InGridInfo.IsBlockAt(curNodeIdx) ||
+			(InGridInfo.IsBlockAt(Vector2Int(curXIdx + 1, curYIdx)) && InGridInfo.IsBlockAt(Vector2Int(curXIdx, curYIdx + 1)))
+			)
+			return Vector2Int::InvalidIdx;
 
 		if (
 			curNodeIdx == goalNodeIdx ||
@@ -786,12 +798,12 @@ PathfindResult __stdcall FindPathJPSFaster(
 	if (isPathFound)
 	{
 		isOutPathMax = (OutPath.push_back(InEnd) == false);
-		
+
 		Vector2Int childNodeIdx = InEnd;
 		Vector2Int nodeIdx = InGridInfo.GetNodeAt(InEnd).m_paretnNode;
 		Vector2Int parentNodeIdx = InGridInfo.GetNodeAt(nodeIdx).m_paretnNode;
 
-		// exclude useless ways
+		// exclude useless points
 		while (parentNodeIdx.isValid() && isOutPathMax == false)
 		{
 			enum class DiffType {
@@ -800,32 +812,32 @@ PathfindResult __stdcall FindPathJPSFaster(
 				DIAGONAL
 			};
 
-			Vector2Int diff1 = Vector2Int(
-				Abs32i(childNodeIdx.m_x - nodeIdx.m_x),
-				Abs32i(childNodeIdx.m_y - nodeIdx.m_y));
+			Vector2Int diff1 = Vector2Int(childNodeIdx.m_x - nodeIdx.m_x, childNodeIdx.m_y - nodeIdx.m_y);
 
-			Vector2Int diff2 = Vector2Int(
-				Abs32i(parentNodeIdx.m_x - nodeIdx.m_x),
-				Abs32i(parentNodeIdx.m_y - nodeIdx.m_y));
+			Vector2Int diff2 = Vector2Int(nodeIdx.m_x - parentNodeIdx.m_x, nodeIdx.m_y - parentNodeIdx.m_y);
 
 			DiffType diff1DiffType;
-			if (diff1.m_x >= 1 && diff1.m_y >= 1)
+			if (Abs32i(diff1.m_x) >= 1 && Abs32i(diff1.m_y) >= 1)
 				diff1DiffType = DiffType::DIAGONAL;
-			else if (diff1.m_x >= 1)
+			else if (Abs32i(diff1.m_x) >= 1)
 				diff1DiffType = DiffType::HORIZONTAL;
 			else
 				diff1DiffType = DiffType::VETICAL;
 
 			DiffType diff2DiffType;
-			if (diff2.m_x >= 1 && diff2.m_y >= 1)
+			if (Abs32i(diff2.m_x) >= 1 && Abs32i(diff2.m_y) >= 1)
 				diff2DiffType = DiffType::DIAGONAL;
 			else if (diff2.m_x >= 1)
 				diff2DiffType = DiffType::HORIZONTAL;
 			else
 				diff2DiffType = DiffType::VETICAL;
 
-			if (diff1DiffType != diff2DiffType)
+			if (diff1DiffType != diff2DiffType ||
+				diff1.m_x * diff2.m_x + diff1.m_y * diff2.m_y <= 0)
+			{
 				isOutPathMax = (OutPath.push_back(nodeIdx) == false);
+			}
+
 
 			childNodeIdx = nodeIdx;
 			nodeIdx = parentNodeIdx;
@@ -833,7 +845,7 @@ PathfindResult __stdcall FindPathJPSFaster(
 		}
 
 		isOutPathMax = (OutPath.push_back(InStart) == false);
-		
+
 	}
 
 	// init pathfinder grid state
